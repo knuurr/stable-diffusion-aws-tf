@@ -1,4 +1,75 @@
-# Stable Diffusion on AWS
+# Stable Diffusion on AWS (but with Terraform)
+
+This repo is fork of https://github.com/mikeage/stable-diffusion-aws which uses Terraform for provisoning resouces, instead of using CLI.
+
+For me It's simply more convenient to have Terraform manage these things for me. It's also easier to tear everything down later.
+
+
+## About
+
+It uses a mix of Terraform and AWS CLI. 
+
+Terraform is used for initial provisioning and eventualy complete teardown of resources.
+
+AWS CLI is used for managing state of EC2 (stop/start). 
+
+For that I created small convenient `lifecycle.sh` script which allows for quick start/stop and ssh into machine. It uses some outputs from Terraform and grabs IP dynamically for connection.
+
+
+## Usage
+
+
+0. Check notes from original repo for more info and context
+1. Modify `variables.tf` to suit your needs- epsecially SSH key path, AWS profile and setting regarding SD web UI to install/use.
+2. Modify `setup.sh` to suit your needs - I've added some models for my own needs. You may comment them out or remove them, as they will take up space and extend provisoning time.
+3. Run Terraform commands:
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+All AWS resoucres will be created. First run will be long, since machine needs to provison. It can take up to 20 minutes.
+
+You can control if there has been no issues with provisoning by checking script logs, once SSHd into server:
+
+```bash
+tail -f /var/log/cloud-init-output.log
+```
+
+4, Use `lifecycle.sh` for convenient managemeng of machine state.
+
+```text
+Usage: ./lifecycle.sh [command]
+Commands:
+  connect/ssh - Connect via SSH to the instance.
+  stop        - Stop the instance.
+  start       - Start the instance.
+  help        - Print this help menu.
+Options:
+ -k, --key     Specify an alternative path for the SSH key (with 'connect/ssh' command)
+```
+
+For example, `lifecycle.sh ssh` will drop you into SSH session for running machine. `lifecycle.sh ssh -k <key>` will use path for SSH key you specified (if none, default to hardcoded variable in script).
+
+Once SSH, use http://localhost:7860 for automatic1111 or http://localhost:9090 for Invoke-AI.
+
+
+`lifecycle.sh stop` and `lifecycle.sh start` can be used for stopping and starting of machine, once you're done with having fun or just getting started, accordingly.
+
+## Credits
+
+All credit goes to original creator for very convienient and affordable way to use Stable Diffusion for those without necessary hardware ⭐
+
+
+## Ideas
+
+- it is possible to add functionality for automatic creation of SSH keys, and for storing them within Terraform state. I just didn't go this way
+- To better mirror original script, one could think about adding conditionality for creating CloudWatch Monitor
+
+
+# Original readme.md
 
 ## Quick Start
 

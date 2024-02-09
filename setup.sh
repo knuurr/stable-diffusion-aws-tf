@@ -83,6 +83,16 @@ sudo -u admin wget --no-verbose https://huggingface.co/stabilityai/stable-diffus
 sudo -u admin wget --no-verbose https://raw.githubusercontent.com/Stability-AI/stablediffusion/main/configs/stable-diffusion/v2-inference.yaml -O v2-1_512-ema-pruned.yaml
 sudo -u admin wget --no-verbose https://raw.githubusercontent.com/Stability-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -O v2-1_768-ema-pruned.yaml
 
+# Art Universe https://civitai.com/models/123313/art-universe
+sudo -u admin wget --no-verbose https://civitai.com/api/download/models/158155?type=Model&format=SafeTensor&size=full&fp=fp16 --content-disposition
+
+
+# List: https://stable-diffusion-art.com/automatic1111-extensions/#Aspect_Ratio_selector
+
+# https://github.com/Bing-su/adetailer
+# Installed into /home/admin/stable-diffusion-webui/extensions/adetailer. Use Installed tab to restart.
+
+
 cat <<EOF | sudo tee /usr/lib/systemd/system/sdwebgui.service
 [Unit]
 Description=Stable Diffusion AUTOMATIC1111 Web UI service
@@ -118,10 +128,37 @@ sudo apt install -y python3-opencv libopencv-dev
 sudo -u admin -E pipx inject InvokeAI pypatchmatch
 sudo -u admin -E /home/admin/.local/bin/invokeai-configure --yes --skip-sd-weights
 
+# Faceswap
+
+# insightface
+sudo -u admin -E pipx inject InvokeAI insightface
+# wget
+
+sudo -u admin -E pipx inject InvokeAI rembg
+cd /home/admin/.local/pipx/venvs/invokeai/lib/python3.11/site-packages/invokeai/app/invocations
+sudo -u admin wget --no-verbose https://raw.githubusercontent.com/ymgenesis/NodeUtilities/main/removebackground.py
+
+
+
 # Manually add the SD 1.5 and 2.1 model
 sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add runwayml/stable-diffusion-v1-5
 #sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add stabilityai/stable-diffusion-2-1-base # 512 version
 sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add stabilityai/stable-diffusion-2-1
+
+# IP Adapter functionality
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add InvokeAI/ip_adapter_sd15
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add InvokeAI/ip_adapter_plus_sd15
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add InvokeAI/ip_adapter_plus_face_sd15
+
+# Vhey/a-zovya-photoreal-v2
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add Vhey/a-zovya-photoreal-v2
+
+# Art Universe model
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --add https://civitai.com/api/download/models/158155
+
+# NodeUtilities https://github.com/ymgenesis/NodeUtilities
+
+
 
 # A few more things installed by default in SD. These can be manually run as well at any point.
 # LoRAs
@@ -129,9 +166,9 @@ sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add stabi
 # Embeddings
 #sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add https://huggingface.co/embed/EasyNegative/resolve/main/EasyNegative.safetensors
 # ControlNets
-#sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add lllyasviel/control_v11p_sd15_canny
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add lllyasviel/control_v11p_sd15_canny
 #sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add lllyasviel/control_v11p_sd15_lineart
-#sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add lllyasviel/control_v11p_sd15_openpose
+sudo -u admin -E /home/admin/.local/bin/invokeai-model-install --yes --add lllyasviel/control_v11p_sd15_openpose
 
 cat <<EOF | sudo tee /usr/lib/systemd/system/invokeai.service
 [Unit]
