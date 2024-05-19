@@ -2,6 +2,11 @@
 
 # Function to connect via SSH
 
+# # Use the SSH command with the generated private key from stdin
+
+# echo "$PRIVATE_KEY_CONTENT" | ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i - -L7860:localhost:7860 -L9090:localhost:9090 admin@"$PUBLIC_IP"
+# ssh -i - specifies that SSH should read the private key from stdin (-i -).
+
 # Common variables
 SPOT_INSTANCE_REQUEST=$(terraform output spot_instance_request_id)
 INSTANCE_ID=$(terraform output instance_id | tr -d '"')
@@ -10,6 +15,8 @@ DEFAULT_SSH_KEY_PATH="${HOME}/.ssh/id_aws-sd"  # Default SSH key path
 
 # Get the script file name
 SCRIPT_NAME=$(basename "$0")
+
+
 
 connect_ssh() {
     SSH_KEY_PATH="$1"
@@ -22,6 +29,22 @@ connect_ssh() {
     echo "[*] Using SSH key: $SSH_KEY_PATH"
     echo "[*] Use http://localhost:7860 for automatic1111 or http://localhost:9090 for Invoke-AI"
     ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $SSH_KEY_PATH -L7860:localhost:7860 -L9090:localhost:9090 admin@$PUBLIC_IP
+    echo "[*] SSH connection closed."
+
+
+}
+
+ssh_user_data_logs() {
+    SSH_KEY_PATH="$1"
+    PUBLIC_IP="$(aws ec2 describe-instances --instance-id $INSTANCE_ID | jq -r '.Reservations[].Instances[].PublicIpAddress')"
+
+    if [ "$PUBLIC_IP" == "null" ]; then
+        echo "[*] Error: Public IP not available. The instance may not be running or the IP is not assigned yet."
+        exit 1
+    fi
+    echo "[*] Using SSH key: $SSH_KEY_PATH"
+    echo "[*] Use http://localhost:7860 for automatic1111 or http://localhost:9090 for Invoke-AI"
+    ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $SSH_KEY_PATH admin@$PUBLIC_IP -- 'tail -n 40 -f /var/log/cloud-init-output.log'
     echo "[*] SSH connection closed."
 
 
@@ -49,6 +72,7 @@ print_help() {
     echo "  stop        - Stop the instance."
     echo "  start       - Start the instance."
     echo "  help        - Print this help menu."
+    echo "  logs        - Capture user-data logs from the instance."
     echo "Options:"
     echo " -k, --key     Specify an alternative path for the SSH key (with 'connect/ssh' command)"
 
@@ -69,7 +93,8 @@ echo "[*] Instance ID: $INSTANCE_ID"
 
 # Parse command and arguments
 case "$1" in
-    "connect" | "ssh")  # Connect via SSH
+    "connect" | "ssh")  
+        # Connect via SSH
         # Check for SSH key path argument
         if [ "$2" == "-k" ] || [ "$2" == "--key" ]; then
             SSH_KEY_PATH="$3"
@@ -78,7 +103,8 @@ case "$1" in
         fi
         connect_ssh $SSH_KEY_PATH
         ;;
-    "stop")  # Stop the instance
+    "stop")  
+        # Stop the instance
         stop_instance
         ;;
     "start")
@@ -87,10 +113,22 @@ case "$1" in
         # sleep 15
         # connect_ssh
         ;;
-    "help")  # Print help menu
+    "log" | "logs")
+        # Handle logs command with optional log file and username arguments
+        # Check for SSH key path argument
+        if [ "$2" == "-k" ] || [ "$2" == "--key" ]; then
+            SSH_KEY_PATH="$3"
+        else
+            SSH_KEY_PATH="$DEFAULT_SSH_KEY_PATH"
+        fi
+        ssh_user_data_logs $SSH_KEY_PATH
+        ;;
+    "help")  
+        # Print help menu
         print_help
         ;;
-    *)  # Invalid command
+        *)  
+        # Invalid command
         echo "[*] Error: Invalid command. Use './$SCRIPT_NAME help' for usage instructions."
         exit 1
         ;;

@@ -7,8 +7,16 @@ terraform {
 
 
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
   profile = var.aws_profile
+}
+
+
+
+resource "tls_private_key" "tls_key" {
+  count     = var.use_ssh_key_from_file ? 0 : 1
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
 
@@ -16,11 +24,12 @@ provider "aws" {
 # https://stackoverflow.com/questions/49743220/how-to-create-an-ssh-key-in-terraform
 resource "aws_key_pair" "ssh_key" {
   key_name   = var.ssh_key_tag_name
-  public_key = file(var.ssh_public_key_path)
+  public_key = var.use_ssh_key_from_file ? file(var.ssh_public_key_path) : tls_private_key.tls_key[0].public_key_openssh
   tags = {
     creator = var.ssh_key_tag_name
   }
 }
+
 
 # # Declare the AWS VPC resource
 # resource "aws_vpc" "default" {
@@ -46,7 +55,7 @@ resource "aws_security_group" "ssh_only" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-    egress {
+  egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -70,17 +79,17 @@ data "aws_ami" "latest_debian" {
 }
 
 resource "aws_instance" "aws_sd_ec2" {
-  ami             = data.aws_ami.latest_debian.id
-  instance_type   = "g4dn.xlarge"
-  key_name        = aws_key_pair.ssh_key.key_name
+  ami           = data.aws_ami.latest_debian.id
+  instance_type = "g4dn.xlarge"
+  key_name      = aws_key_pair.ssh_key.key_name
   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance#security_groups
   # https://stackoverflow.com/questions/67811623/putting-security-group-ids-of-a-vpc-in-a-list-using-terraform
   # subnet_id       = aws_subnet.selected_subnet.id
   # security_group   = [aws_security_group.ssh_only.name]
-  vpc_security_group_ids = [ aws_security_group.ssh_only.id ]
-  
-  user_data       = file(var.user_data_filename)
-    tags = {
+  vpc_security_group_ids = [aws_security_group.ssh_only.id]
+
+  user_data = file(var.user_data_filename)
+  tags = {
     INSTALL_AUTOMATIC1111 = var.install_automatic1111
     INSTALL_INVOKEAI      = var.install_invokeai
     GUI_TO_START          = var.gui_to_start
@@ -99,16 +108,18 @@ resource "aws_instance" "aws_sd_ec2" {
 
 
   instance_market_options {
-    market_type                 = "spot"
+    market_type = "spot"
     spot_options {
-      max_price                 = var.spot_price
-      spot_instance_type        = "persistent"
+      max_price                      = var.spot_price
+      spot_instance_type             = "persistent"
       instance_interruption_behavior = "stop"
     }
   }
 }
 
 # Provision with stopped state
+# AWS does not currently have an EC2 API operation to determine an instance has finished processing user data. As a result, this resource can interfere with user data processing. For example, this resource may stop an instance while the user data script is in mid run.
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_instance_state
 # resource "aws_ec2_instance_state" "test" {
 #   instance_id = aws_instance.example.id
 #   state       = "stopped"
